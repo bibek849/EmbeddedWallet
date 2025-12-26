@@ -66,13 +66,13 @@ export function validatePrivateKeyFormat(privateKey) {
   }
 }
 
-export async function generateCdpOnrampJwt() {
+export async function generateCdpOnrampJwt(opts) {
   const { CDP_API_KEY_NAME, CDP_API_KEY_PRIVATE_KEY } = assertCdpCredentials();
   validatePrivateKeyFormat(CDP_API_KEY_PRIVATE_KEY);
 
-  const requestMethod = 'POST';
+  const requestMethod = (opts?.requestMethod || 'POST').toUpperCase();
   const requestHost = 'api.developer.coinbase.com';
-  const requestPath = '/onramp/v1/token';
+  const requestPath = opts?.requestPath || '/onramp/v1/token';
   const uri = `${requestMethod} ${requestHost}${requestPath}`;
 
   const now = Math.floor(Date.now() / 1000);

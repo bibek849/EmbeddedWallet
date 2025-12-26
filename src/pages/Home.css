@@ -107,6 +107,42 @@
   text-align: left;
 }
 
+.selector-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.selector {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.selector-label {
+  font-size: 0.7rem;
+  color: rgba(255, 255, 255, 0.55);
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+}
+
+.selector-select {
+  width: 100%;
+  padding: 0.75rem 0.85rem;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  font-size: 0.92rem;
+  background: rgba(255, 255, 255, 0.03);
+  color: rgba(255, 255, 255, 0.92);
+  min-height: 44px;
+}
+
+.selector-select:focus {
+  border-color: var(--focus-border);
+  box-shadow: var(--focus-ring);
+}
+
 .balance-label {
   font-size: 0.9rem;
   opacity: 0.9;
@@ -154,54 +190,143 @@
 }
 
 .action-buttons {
-  display: flex;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 1rem;
-  flex-wrap: wrap;
 }
 
 .action-button {
-  flex: 1;
-  min-width: 120px;
-  padding: 1rem;
+  --accent-rgb: 106 167 255;
+
+  width: 100%;
+  min-width: 0;
+  height: 112px;
+  padding: 1.05rem 1rem;
   border-radius: var(--radius-md);
-  font-size: 0.85rem;
-  font-weight: 600;
+  font-size: 0.72rem;
+  font-weight: 900;
   text-transform: uppercase;
-  letter-spacing: 0.14em;
-  transition: transform 0.12s ease, background-color 0.12s ease,
-    border-color 0.12s ease, color 0.12s ease;
+  letter-spacing: 0.16em;
+  line-height: 1.15;
+
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.65rem;
+
+  position: relative;
+  overflow: hidden;
+
+  transition:
+    transform 170ms ease,
+    background 170ms ease,
+    border-color 170ms ease,
+    box-shadow 170ms ease,
+    opacity 170ms ease;
   border: 1px solid var(--border-color);
+  color: rgba(255, 255, 255, 0.92);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.02));
+}
+
+.action-button::before {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  background: radial-gradient(
+    70% 100% at 50% 0%,
+    rgba(var(--accent-rgb), 0.22),
+    transparent 60%
+  );
+  opacity: 0.9;
+  pointer-events: none;
+}
+
+.action-button:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+  border-color: rgba(var(--accent-rgb), 0.55);
 }
 
 .action-button:active {
-  transform: scale(0.98);
+  transform: translateY(0) scale(0.99);
 }
 
 .fund-button {
-  background: rgba(52, 211, 153, 0.1);
-  color: #ffffff;
-  border-color: rgba(52, 211, 153, 0.3);
+  --accent-rgb: 52 211 153;
 }
 
 .send-button {
-  background: rgba(0, 82, 255, 0.12);
-  color: #ffffff;
-  border-color: rgba(0, 82, 255, 0.35);
+  --accent-rgb: 106 167 255;
 }
 
 .receive-button {
-  background: rgba(255, 107, 53, 0.12);
-  color: #ffffff;
-  border-color: rgba(255, 107, 53, 0.35);
+  --accent-rgb: 255 107 53;
+}
+
+@media (hover: hover) {
+  .action-button:hover:not(:disabled) {
+    transform: translateY(-2px);
+    border-color: rgba(var(--accent-rgb), 0.38);
+    background: linear-gradient(
+      180deg,
+      rgba(var(--accent-rgb), 0.12),
+      rgba(255, 255, 255, 0.03)
+    );
+    box-shadow: 0 18px 48px rgba(0, 0, 0, 0.45);
+  }
+}
+
+.action-button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.action-icon {
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(var(--accent-rgb), 0.35);
+  background: rgba(var(--accent-rgb), 0.10);
+  position: relative;
+  z-index: 1;
+  color: rgba(255, 255, 255, 0.92);
+}
+
+.action-icon svg {
+  width: 18px;
+  height: 18px;
+}
+
+.action-text {
+  text-align: center;
+  color: rgba(255, 255, 255, 0.94);
+  position: relative;
+  z-index: 1;
 }
 
 @media (max-width: 480px) {
   .action-buttons {
-    flex-direction: column;
+    grid-template-columns: 1fr;
   }
-  
+
   .action-button {
-    width: 100%;
+    height: 96px;
+  }
+
+  .selector-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .action-button {
+    transition: none !important;
   }
 }
 

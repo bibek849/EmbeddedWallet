@@ -93,6 +93,39 @@ This repo contains:
 - **Vite static frontend** (build output: `dist/`)
 - **Backend API** used by the frontend at `/api/*` (implemented as Vercel Serverless Functions in `api/`)
 
+## Optional: Separate Landing Page on Root Domain (recommended)
+
+If you want a marketing/landing site on your root domain (e.g. `yourdomain.com`) and keep the wallet app on a subdomain (e.g. `app.yourdomain.com`), this repo includes a separate static landing site in `landing/`.
+
+### Recommended domain split
+- Landing: `https://yourdomain.com`
+- Wallet app: `https://app.yourdomain.com`
+
+### Create a separate Vercel project for the landing page
+1. In Vercel, click **Add New → Project**
+2. Import the same GitHub repo
+3. Set **Root Directory** to `landing`
+4. Framework preset: **Other**
+5. Build Command: **leave empty**
+6. Output Directory: `.` (dot)
+
+### Configure the landing page “Open App” button
+Edit `landing/config.js` and set:
+- `appUrl: "https://app.yourdomain.com"`
+
+### Attach domains (2 projects)
+In Vercel → **Landing project → Settings → Domains**
+- Add `yourdomain.com` (and optionally `www.yourdomain.com`)
+
+In Vercel → **Wallet project → Settings → Domains**
+- Add `app.yourdomain.com`
+
+Vercel will show the exact DNS records to add at your registrar.
+
+### Coinbase redirect allowlist reminder
+If your wallet runs on `app.yourdomain.com`, make sure Coinbase allows:
+- `https://app.yourdomain.com/onramp-callback`
+
 ### 1) Push to GitHub
 Create a GitHub repo and push this project.
 

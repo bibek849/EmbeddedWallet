@@ -7,10 +7,18 @@ export type StoredWalletV1 = {
   createdAt: number;
 };
 
+export type TheftPasscodeVerifierV1 = {
+  version: 1;
+  verifier: EncryptedPayload;
+  createdAt: number;
+};
+
 const DB_NAME = 'embeddedWallet';
 const DB_VERSION = 1;
 const STORE_NAME = 'kv';
 const WALLET_KEY = 'wallet_v1';
+const THEFT_VERIFIER_KEY = 'theft_passcode_verifier_v1';
+const THEFT_SETUP_PENDING_KEY = 'theft_setup_pending_v1';
 
 function openDb(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
@@ -69,6 +77,30 @@ export async function setStoredWallet(wallet: StoredWalletV1): Promise<void> {
 
 export async function clearStoredWallet(): Promise<void> {
   await deleteValue(WALLET_KEY);
+}
+
+export async function getTheftPasscodeVerifier(): Promise<TheftPasscodeVerifierV1 | null> {
+  return getValue<TheftPasscodeVerifierV1>(THEFT_VERIFIER_KEY);
+}
+
+export async function setTheftPasscodeVerifier(record: TheftPasscodeVerifierV1): Promise<void> {
+  await setValue(THEFT_VERIFIER_KEY, record);
+}
+
+export async function clearTheftPasscodeVerifier(): Promise<void> {
+  await deleteValue(THEFT_VERIFIER_KEY);
+}
+
+export async function getTheftSetupPending(): Promise<boolean> {
+  return (await getValue<boolean>(THEFT_SETUP_PENDING_KEY)) ?? false;
+}
+
+export async function setTheftSetupPending(pending: boolean): Promise<void> {
+  await setValue<boolean>(THEFT_SETUP_PENDING_KEY, pending);
+}
+
+export async function clearTheftSetupPending(): Promise<void> {
+  await deleteValue(THEFT_SETUP_PENDING_KEY);
 }
 
 

@@ -21,8 +21,8 @@ app.use(express.json());
 const CDP_API_KEY_NAME = process.env.CDP_API_KEY_NAME;
 const CDP_API_KEY_PRIVATE_KEY = process.env.CDP_API_KEY_PRIVATE_KEY;
 
-// Generate JWT for Coinbase CDP API authentication using CDP SDK
-async function generateJWT() {
+// Generate JWT for Coinbase CDP API authentication
+async function generateJWT(opts = {}) {
   if (!CDP_API_KEY_NAME || !CDP_API_KEY_PRIVATE_KEY) {
     throw new Error('CDP API credentials not configured');
   }
@@ -58,9 +58,9 @@ async function generateJWT() {
     privateKey = privateKey.replace(/-----END EC PRIVATE KEY-----/, '\n-----END EC PRIVATE KEY-----');
   }
   
-  const requestMethod = 'POST';
+  const requestMethod = String(opts.requestMethod || 'POST').toUpperCase();
   const requestHost = 'api.developer.coinbase.com';
-  const requestPath = '/onramp/v1/token';
+  const requestPath = String(opts.requestPath || '/onramp/v1/token');
   const uri = `${requestMethod} ${requestHost}${requestPath}`;
   
   const now = Math.floor(Date.now() / 1000);
@@ -111,7 +111,7 @@ app.post('/api/onramp/create-session', async (req, res) => {
 
     // Generate JWT for authentication
     console.log('Generating JWT...');
-    const token = await generateJWT();
+    const token = await generateJWT({ requestMethod: 'POST', requestPath: '/onramp/v1/token' });
     console.log('JWT generated successfully');
 
     // Map network names to Coinbase format
@@ -119,7 +119,10 @@ app.post('/api/onramp/create-session', async (req, res) => {
       ethereum: 'ethereum',
       base: 'base',
       polygon: 'polygon',
+      optimism: 'optimism',
+      arbitrum: 'arbitrum',
       bitcoin: 'bitcoin',
+      solana: 'solana',
     };
 
     const blockchain = networkMap[destinationNetwork] || destinationNetwork;
@@ -204,6 +207,56 @@ app.post('/api/onramp/create-session', async (req, res) => {
     } catch (sendError) {
       console.error('Failed to send error response:', sendError);
     }
+  }
+});
+
+// Buy Options endpoint (discovers supported assets/networks for a country)
+app.get('/api/onramp/buy-options', async (req, res) => {
+  try {
+    const country = String(req.query?.country || 'US').toUpperCase();
+    // Coinbase docs indicate `subdivision` is required for US (e.g. NY) due to state restrictions.
+    // Default to NY for demos if not supplied.
+    const subdivision =
+      req.query?.subdivision
+        ? String(req.query.subdivision).toUpperCase()
+        : country === 'US'
+          ? 'NY'
+          : undefined;
+    const networks = req.query?.networks ? String(req.query.networks) : undefined;
+
+    const token = await generateJWT({ requestMethod: 'GET', requestPath: '/onramp/v1/buy/options' });
+
+    const url = new URL('https://api.developer.coinbase.com/onramp/v1/buy/options');
+    url.searchParams.set('country', country);
+    if (subdivision) url.searchParams.set('subdivision', subdivision);
+    if (networks) url.searchParams.set('networks', networks);
+
+    const optionsResp = await fetch(url.toString(), {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    if (!optionsResp.ok) {
+      const errorText = await optionsResp.text();
+      return res.status(500).json({
+        error: 'Failed to fetch buy options',
+        details: errorText,
+      });
+    }
+
+    const data = await optionsResp.json();
+    const payload = data?.data ?? data;
+    res.json({
+      purchaseCurrencies: payload?.purchase_currencies ?? payload?.purchaseCurrencies ?? [],
+      paymentCurrencies: payload?.payment_currencies ?? payload?.paymentCurrencies ?? [],
+    });
+  } catch (error) {
+    console.error('Error fetching buy options:', error);
+    res.status(500).json({
+      error: 'Internal server error',
+      message: error?.message || 'Unknown error',
+    });
   }
 });
 

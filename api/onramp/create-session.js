@@ -25,14 +25,17 @@ export default async function handler(req, res) {
       });
     }
 
-    const token = await generateCdpOnrampJwt();
+    const token = await generateCdpOnrampJwt({ requestMethod: 'POST', requestPath: '/onramp/v1/token' });
 
     // Map network names to Coinbase format (blockchain for "addresses.blockchains")
     const networkMap = {
       ethereum: 'ethereum',
       base: 'base',
       polygon: 'polygon',
+      optimism: 'optimism',
+      arbitrum: 'arbitrum',
       bitcoin: 'bitcoin',
+      solana: 'solana',
     };
     const blockchain = networkMap[destinationNetwork] || destinationNetwork;
 

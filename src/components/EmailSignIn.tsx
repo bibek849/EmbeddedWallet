@@ -5,22 +5,33 @@ import styles from './EmailSignIn.module.css';
 
 interface EmailSignInProps {
   onSuccess?: () => void;
-  mode?: 'setup' | 'unlock';
+  mode?: 'setup' | 'unlock' | 'theft';
 }
 
 const EmailSignIn = ({ onSuccess, mode }: EmailSignInProps) => {
-  const { hasWallet, isUnlocked, importWallet, unlock, resetWallet } = useWallet();
+  const {
+    hasWallet,
+    isUnlocked,
+    importWallet,
+    unlock,
+    resetWallet,
+    setTheftPasscode,
+    skipTheftSetup,
+  } = useWallet();
 
-  const effectiveMode: 'setup' | 'unlock' = useMemo(() => {
+  const effectiveMode: 'setup' | 'unlock' | 'theft' = useMemo(() => {
     if (mode) return mode;
     return hasWallet ? 'unlock' : 'setup';
   }, [hasWallet, mode]);
 
   const [tab, setTab] = useState<'create' | 'import'>('create');
+  const [setupStep, setSetupStep] = useState<'choose' | 'create' | 'import' | 'theft'>('choose');
   const [generatedMnemonic, setGeneratedMnemonic] = useState<string | null>(null);
   const [mnemonicInput, setMnemonicInput] = useState('');
   const [passcode, setPasscode] = useState('');
   const [confirmPasscode, setConfirmPasscode] = useState('');
+  const [theftPasscode, setTheftPasscodeValue] = useState('');
+  const [confirmTheftPasscode, setConfirmTheftPasscode] = useState('');
   const [savedSeed, setSavedSeed] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -28,6 +39,14 @@ const EmailSignIn = ({ onSuccess, mode }: EmailSignInProps) => {
   const validatePasscodes = () => {
     if (!passcode || passcode.length < 6) return 'Passcode must be at least 6 characters';
     if (passcode !== confirmPasscode) return 'Passcodes do not match';
+    return null;
+  };
+
+  const validateTheftPasscodesRequired = () => {
+    if (!theftPasscode) return 'Enter a theft passcode';
+    if (theftPasscode.length < 6) return 'Theft passcode must be at least 6 characters';
+    if (theftPasscode !== confirmTheftPasscode) return 'Theft passcodes do not match';
+    if (theftPasscode === passcode) return 'Theft passcode must be different from your main passcode';
     return null;
   };
 
@@ -65,7 +84,7 @@ const EmailSignIn = ({ onSuccess, mode }: EmailSignInProps) => {
     setError(null);
     try {
       await importWallet(generatedMnemonic, passcode);
-      if (onSuccess) onSuccess();
+      setSetupStep('theft');
     } catch (err: any) {
       setError(err.message || 'Failed to create wallet');
     } finally {
@@ -89,9 +108,40 @@ const EmailSignIn = ({ onSuccess, mode }: EmailSignInProps) => {
     setError(null);
     try {
       await importWallet(mnemonicInput, passcode);
-      if (onSuccess) onSuccess();
+      setSetupStep('theft');
     } catch (err: any) {
       setError(err.message || 'Failed to import wallet');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleEnableTheftPasscode = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const theftErr = validateTheftPasscodesRequired();
+    if (theftErr) {
+      setError(theftErr);
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+    try {
+      await setTheftPasscode(theftPasscode);
+      if (onSuccess) onSuccess();
+    } catch (err: any) {
+      setError(err.message || 'Failed to enable theft protection');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSkipTheftPasscode = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      await skipTheftSetup();
+      if (onSuccess) onSuccess();
     } finally {
       setLoading(false);
     }
@@ -164,35 +214,178 @@ const EmailSignIn = ({ onSuccess, mode }: EmailSignInProps) => {
               <div className={styles.infoText}>You can now send funds from the Send tab.</div>
             )}
           </>
+        ) : effectiveMode === 'theft' ? (
+          <>
+            <h2>Theft Protection</h2>
+            <p className={styles.subtitle}>Optional, but recommended</p>
+
+            <div className={styles.theftIntro}>
+              <div className={styles.theftHero} aria-hidden="true">
+                <div className={styles.theftHalo} />
+                <div className={styles.theftShield}>
+                  <svg viewBox="0 0 24 24" width="22" height="22" role="img" aria-label="Shield icon">
+                    <path
+                      fill="currentColor"
+                      d="M12 2.25c.2 0 .4.04.58.12l7 3.11c.53.24.87.76.87 1.34v6.17c0 3.88-2.46 7.43-6.17 8.9l-1.74.69c-.34.14-.72.14-1.06 0l-1.74-.69C5.03 20.42 2.57 16.87 2.57 12.99V6.82c0-.58.34-1.1.87-1.34l7-3.11c.18-.08.38-.12.56-.12Zm0 2.1L4.82 7.54v5.45c0 3.01 1.9 5.84 4.77 6.98L12 20.9l2.41-.93c2.87-1.14 4.77-3.97 4.77-6.98V7.54L12 4.35Z"
+                    />
+                  </svg>
+                </div>
+              </div>
+
+              <p className={styles.theftBody}>
+                Set a second passcode for emergencies. If you’re ever forced to open your wallet, enter this code instead of your
+                normal passcode.
+              </p>
+              <p className={styles.theftBody}>
+                Your wallet on this device will be erased and replaced with a new empty wallet.
+              </p>
+
+              <form onSubmit={handleEnableTheftPasscode} className={styles.signinForm}>
+                <div className={styles.formGroup}>
+                  <label htmlFor="theft-passcode">Theft Passcode</label>
+                  <input
+                    id="theft-passcode"
+                    type="password"
+                    value={theftPasscode}
+                    onChange={(e) => setTheftPasscodeValue(e.target.value)}
+                    placeholder="At least 6 characters"
+                    disabled={loading}
+                    required
+                    autoComplete="new-password"
+                  />
+                </div>
+
+                <div className={styles.formGroup}>
+                  <label htmlFor="confirm-theft-passcode">Confirm Theft Passcode</label>
+                  <input
+                    id="confirm-theft-passcode"
+                    type="password"
+                    value={confirmTheftPasscode}
+                    onChange={(e) => setConfirmTheftPasscode(e.target.value)}
+                    placeholder="Repeat theft passcode"
+                    disabled={loading}
+                    required
+                    autoComplete="new-password"
+                  />
+                </div>
+
+                <div className={styles.disclaimer}>
+                  This is irreversible. If you enter the theft passcode, the wallet stored on this device is wiped and can’t be
+                  restored from this device.
+                </div>
+
+                {error && <div className={styles.errorMessage}>{error}</div>}
+
+                <button type="submit" disabled={loading} className={styles.primaryButton}>
+                  {loading ? 'Enabling...' : 'Enable Theft Protection'}
+                </button>
+
+                <button type="button" disabled={loading} className={styles.secondaryButton} onClick={handleSkipTheftPasscode}>
+                  Skip for now
+                </button>
+              </form>
+            </div>
+          </>
         ) : (
           <>
             <h2>Create or Import Wallet</h2>
             <p className={styles.subtitle}>Your seed phrase is encrypted and stored on this device</p>
 
-            <div className={styles.tabRow}>
-              <button
-                type="button"
-                className={`${styles.tabButton} ${tab === 'create' ? styles.tabButtonActive : ''}`}
-                onClick={() => {
-                  setTab('create');
-                  setError(null);
-                }}
-              >
-                Create
-              </button>
-              <button
-                type="button"
-                className={`${styles.tabButton} ${tab === 'import' ? styles.tabButtonActive : ''}`}
-                onClick={() => {
-                  setTab('import');
-                  setError(null);
-                }}
-              >
-                Import
-              </button>
-            </div>
+            <div className={styles.setupFlow} data-step={setupStep}>
+              <div className={styles.choicePanel} aria-hidden={setupStep !== 'choose'}>
+                <div className={styles.choiceGrid}>
+                  <button
+                    type="button"
+                    className={styles.choiceCard}
+                    onClick={() => {
+                      setSetupStep('create');
+                      setTab('create');
+                      setError(null);
+                    }}
+                    disabled={loading}
+                    aria-label="Create a new wallet"
+                  >
+                    <div className={styles.choiceTopRow}>
+                      <span className={styles.choiceIcon} aria-hidden="true">
+                        +
+                      </span>
+                      <span className={styles.choiceTitle}>Create</span>
+                    </div>
+                    <span className={styles.choiceBody}>Generate a new 12-word seed phrase on this device.</span>
+                  </button>
 
-            {tab === 'create' ? (
+                  <button
+                    type="button"
+                    className={styles.choiceCard}
+                    onClick={() => {
+                      setSetupStep('import');
+                      setTab('import');
+                      setError(null);
+                    }}
+                    disabled={loading}
+                    aria-label="Import an existing wallet"
+                  >
+                    <div className={styles.choiceTopRow}>
+                      <span className={styles.choiceIcon} aria-hidden="true">
+                        ↩
+                      </span>
+                      <span className={styles.choiceTitle}>Import</span>
+                    </div>
+                    <span className={styles.choiceBody}>Bring an existing wallet using your seed phrase.</span>
+                  </button>
+                </div>
+
+                <p className={styles.choiceHint}>You can switch anytime.</p>
+              </div>
+
+              <div className={styles.formPanel} aria-hidden={setupStep === 'choose'}>
+                {setupStep !== 'theft' ? (
+                  <>
+                    <div className={styles.formTopBar}>
+                      <button
+                        type="button"
+                        className={styles.backButton}
+                        onClick={() => {
+                          setSetupStep('choose');
+                          setError(null);
+                        }}
+                        disabled={loading}
+                      >
+                        Back
+                      </button>
+
+                      <div className={styles.segmented} data-active={tab} role="tablist" aria-label="Wallet setup mode">
+                        <span className={styles.segmentedIndicator} aria-hidden="true" />
+                        <button
+                          type="button"
+                          role="tab"
+                          aria-selected={tab === 'create'}
+                          className={styles.segmentedButton}
+                          onClick={() => {
+                            setTab('create');
+                            setError(null);
+                          }}
+                          disabled={loading}
+                        >
+                          Create
+                        </button>
+                        <button
+                          type="button"
+                          role="tab"
+                          aria-selected={tab === 'import'}
+                          className={styles.segmentedButton}
+                          onClick={() => {
+                            setTab('import');
+                            setError(null);
+                          }}
+                          disabled={loading}
+                        >
+                          Import
+                        </button>
+                      </div>
+                    </div>
+
+                    {tab === 'create' ? (
               <form onSubmit={handleCreate} className={styles.signinForm}>
                 <div className={styles.formGroup}>
                   <label>Seed Phrase</label>
@@ -246,32 +439,42 @@ const EmailSignIn = ({ onSuccess, mode }: EmailSignInProps) => {
 
                 {error && <div className={styles.errorMessage}>{error}</div>}
 
-                <button type="submit" disabled={loading} className={styles.primaryButton}>
-                  {loading ? 'Saving...' : 'Create Wallet'}
-                </button>
-
-                {!generatedMnemonic && (
+                {!generatedMnemonic ? (
                   <button
                     type="button"
                     disabled={loading}
-                    className={styles.secondaryButton}
+                    className={styles.primaryButton}
                     onClick={handleGenerateSeed}
                   >
                     Generate Seed Phrase
                   </button>
+                ) : (
+                  <button type="submit" disabled={loading} className={styles.primaryButton}>
+                    {loading ? 'Saving...' : 'Create Wallet'}
+                  </button>
                 )}
 
                 {generatedMnemonic && (
-                  <button
-                    type="button"
-                    disabled={loading}
-                    className={styles.secondaryButton}
-                    onClick={() => {
-                      navigator.clipboard.writeText(generatedMnemonic);
-                    }}
-                  >
-                    Copy Seed Phrase
-                  </button>
+                  <div className={styles.buttonRow}>
+                    <button
+                      type="button"
+                      disabled={loading}
+                      className={styles.secondaryButton}
+                      onClick={() => {
+                        navigator.clipboard.writeText(generatedMnemonic);
+                      }}
+                    >
+                      Copy Seed Phrase
+                    </button>
+                    <button
+                      type="button"
+                      disabled={loading}
+                      className={styles.secondaryButton}
+                      onClick={handleGenerateSeed}
+                    >
+                      Regenerate
+                    </button>
+                  </div>
                 )}
 
                 <p className={styles.infoText}>
@@ -329,6 +532,83 @@ const EmailSignIn = ({ onSuccess, mode }: EmailSignInProps) => {
                 </button>
               </form>
             )}
+                  </>
+                ) : (
+                  <div className={styles.theftIntro}>
+                    <div className={styles.theftHero} aria-hidden="true">
+                      <div className={styles.theftHalo} />
+                      <div className={styles.theftShield}>
+                        <svg viewBox="0 0 24 24" width="22" height="22" role="img" aria-label="Shield icon">
+                          <path
+                            fill="currentColor"
+                            d="M12 2.25c.2 0 .4.04.58.12l7 3.11c.53.24.87.76.87 1.34v6.17c0 3.88-2.46 7.43-6.17 8.9l-1.74.69c-.34.14-.72.14-1.06 0l-1.74-.69C5.03 20.42 2.57 16.87 2.57 12.99V6.82c0-.58.34-1.1.87-1.34l7-3.11c.18-.08.38-.12.56-.12Zm0 2.1L4.82 7.54v5.45c0 3.01 1.9 5.84 4.77 6.98L12 20.9l2.41-.93c2.87-1.14 4.77-3.97 4.77-6.98V7.54L12 4.35Z"
+                          />
+                        </svg>
+                      </div>
+                    </div>
+
+                    <h3 className={styles.theftTitle}>Theft Protection</h3>
+                    <p className={styles.theftBody}>
+                      Set a second passcode for emergencies. If you’re ever forced to open your wallet, enter this code instead of
+                      your normal passcode.
+                    </p>
+                    <p className={styles.theftBody}>
+                      Your wallet on this device will be erased and replaced with a new empty wallet.
+                    </p>
+
+                    <form onSubmit={handleEnableTheftPasscode} className={styles.signinForm}>
+                      <div className={styles.formGroup}>
+                        <label htmlFor="theft-passcode">Theft Passcode</label>
+                        <input
+                          id="theft-passcode"
+                          type="password"
+                          value={theftPasscode}
+                          onChange={(e) => setTheftPasscodeValue(e.target.value)}
+                          placeholder="At least 6 characters"
+                          disabled={loading}
+                          required
+                          autoComplete="new-password"
+                        />
+                      </div>
+
+                      <div className={styles.formGroup}>
+                        <label htmlFor="confirm-theft-passcode">Confirm Theft Passcode</label>
+                        <input
+                          id="confirm-theft-passcode"
+                          type="password"
+                          value={confirmTheftPasscode}
+                          onChange={(e) => setConfirmTheftPasscode(e.target.value)}
+                          placeholder="Repeat theft passcode"
+                          disabled={loading}
+                          required
+                          autoComplete="new-password"
+                        />
+                      </div>
+
+                      <div className={styles.disclaimer}>
+                        This is irreversible. If you enter the theft passcode, the wallet stored on this device is wiped and can’t
+                        be restored from this device.
+                      </div>
+
+                      {error && <div className={styles.errorMessage}>{error}</div>}
+
+                      <button type="submit" disabled={loading} className={styles.primaryButton}>
+                        {loading ? 'Enabling...' : 'Enable Theft Protection'}
+                      </button>
+
+                      <button
+                        type="button"
+                        disabled={loading}
+                        className={styles.secondaryButton}
+                        onClick={handleSkipTheftPasscode}
+                      >
+                        Skip for now
+                      </button>
+                    </form>
+                  </div>
+                )}
+              </div>
+            </div>
           </>
         )}
       </div>

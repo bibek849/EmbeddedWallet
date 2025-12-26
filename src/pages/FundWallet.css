@@ -110,7 +110,7 @@
   word-break: break-all;
 }
 
-.fund-button {
+.fund-wallet .fund-button {
   width: 100%;
   padding: 1rem;
   background: #ffffff;
@@ -124,12 +124,12 @@
   margin-bottom: 1rem;
 }
 
-.fund-button:disabled {
+.fund-wallet .fund-button:disabled {
   opacity: 0.6;
   cursor: not-allowed;
 }
 
-.fund-button:hover:not(:disabled) {
+.fund-wallet .fund-button:hover:not(:disabled) {
   background: transparent;
   color: #ffffff;
 }

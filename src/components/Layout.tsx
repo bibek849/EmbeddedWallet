@@ -1,6 +1,7 @@
 import { ReactNode } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import styles from './Layout.module.css';
+import { PwaInstall } from './PwaInstall';
 
 interface LayoutProps {
   children: ReactNode;
@@ -19,10 +20,7 @@ const Layout = ({ children }: LayoutProps) => {
           </div>
 
           <div className={styles.topActions} aria-label="Top actions">
-            <div className={styles.statusPill} title="System status">
-              <span className={styles.statusDot} aria-hidden="true" />
-              <span className={styles.statusText}>Operational</span>
-            </div>
+            <PwaInstall />
           </div>
         </div>
       </header>

@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import QRCode from 'qrcode';
 import { useWallet } from '../contexts/WalletContext';
+import { useWalletNetworkAsset } from '../hooks/useWalletNetworkAsset';
+import type { ChainKey } from '../config/chains';
 import './Receive.css';
 
 const Receive = () => {
@@ -8,6 +10,16 @@ const Receive = () => {
   const [copied, setCopied] = useState(false);
   const canShare = typeof navigator.share === 'function';
   const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
+  const {
+    chains,
+    assetsForSelectedChain,
+    selectedChainKey,
+    selectedChain,
+    setSelectedChainKey,
+    selectedAssetId,
+    selectedAsset,
+    setSelectedAssetId,
+  } = useWalletNetworkAsset();
 
   useEffect(() => {
     let t: number | undefined;
@@ -61,7 +73,7 @@ const Receive = () => {
       try {
         await navigator.share({
           title: 'My Wallet Address',
-          text: `My Base wallet address: ${walletAddress}`,
+          text: `My ${selectedChain.displayName} wallet address (${selectedAsset?.symbol ?? selectedChain.nativeSymbol}): ${walletAddress}`,
         });
         return;
       } catch (err) {
@@ -74,8 +86,44 @@ const Receive = () => {
   return (
     <div className="receive-page">
       <div className="receive-card">
-        <h2>Receive (Base)</h2>
-        <p className="subtitle">Share your address to receive Base ETH</p>
+        <h2>
+          Receive ({selectedChain.displayName})
+        </h2>
+        <p className="subtitle">
+          Share your address to receive {selectedAsset?.symbol ?? selectedChain.nativeSymbol} on {selectedChain.displayName}
+        </p>
+
+        <div className="selector-row" aria-label="Network and asset selection">
+          <div>
+            <div className="selector-label">Network</div>
+            <select
+              className="selector-select"
+              value={selectedChainKey}
+              onChange={(e) => setSelectedChainKey(e.target.value as ChainKey)}
+            >
+              {chains.map((k) => (
+                <option key={k} value={k}>
+                  {k.charAt(0).toUpperCase() + k.slice(1)}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <div className="selector-label">Asset</div>
+            <select
+              className="selector-select"
+              value={selectedAssetId}
+              onChange={(e) => setSelectedAssetId(e.target.value)}
+            >
+              {assetsForSelectedChain.map((a) => (
+                <option key={a.id} value={a.id}>
+                  {a.symbol}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
 
         <div className="qr-placeholder">
           {qrDataUrl ? (
@@ -114,7 +162,7 @@ const Receive = () => {
         <div className="info-box">
           <h3>Network</h3>
           <ul>
-            <li>Base Mainnet</li>
+            <li>{selectedChain.displayName} Mainnet</li>
           </ul>
         </div>
       </div>
