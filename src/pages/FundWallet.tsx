@@ -50,14 +50,19 @@ const FundWallet = () => {
         },
         body: JSON.stringify({
           destinationAddress: walletAddress,
-          purchaseCurrency: selectedAsset?.id ?? selectedAssetId,
+          // Prefer symbol for best compatibility with Coinbase hosted UI defaults.
+          purchaseCurrency: selectedAsset?.symbol ?? selectedAsset?.id ?? selectedAssetId,
+          purchaseCurrencySymbol: selectedAsset?.symbol,
           destinationNetwork: selectedChainKey,
           redirectUrl: `${window.location.origin}/onramp-callback`,
+          // Optional but useful: lets you query transaction status by this identifier later.
+          partnerUserRef: walletAddress,
         }),
       });
 
       if (!response.ok) {
-        throw new Error('Failed to create onramp session');
+        const text = await response.text().catch(() => '');
+        throw new Error(text || 'Failed to create onramp session');
       }
 
       const data = await response.json();
@@ -67,7 +72,8 @@ const FundWallet = () => {
       window.location.href = onrampUrl;
     } catch (error) {
       console.error('Error creating onramp session:', error);
-      alert('Failed to initialize funding. Please try again.');
+      const msg = error instanceof Error ? error.message : 'Failed to initialize funding. Please try again.';
+      alert(msg);
       setLoading(false);
     }
   };

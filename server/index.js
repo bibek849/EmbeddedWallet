@@ -14,12 +14,64 @@ if (requestedPort === 3000) {
   console.warn('⚠️  Detected PORT=3000 in environment. Using PORT=3001 for the backend to avoid Vite port collision.');
 }
 
+// If behind a proxy (Vercel/NGINX), this makes req.ip use X-Forwarded-For.
+app.set('trust proxy', true);
 app.use(cors());
 app.use(express.json());
 
 // Coinbase CDP API credentials (set these in .env file)
 const CDP_API_KEY_NAME = process.env.CDP_API_KEY_NAME;
 const CDP_API_KEY_PRIVATE_KEY = process.env.CDP_API_KEY_PRIVATE_KEY;
+
+function getClientIp(req) {
+  const ip =
+    (typeof req.ip === 'string' && req.ip) ||
+    (typeof req.headers?.['x-forwarded-for'] === 'string'
+      ? req.headers['x-forwarded-for'].split(',')[0]?.trim()
+      : undefined) ||
+    req.socket?.remoteAddress ||
+    undefined;
+  if (!ip) return undefined;
+  const normalized = ip.startsWith('::ffff:') ? ip.slice('::ffff:'.length) : ip;
+  return isPublicIp(normalized) ? normalized : undefined;
+}
+
+function isPublicIp(ip) {
+  if (typeof ip !== 'string') return false;
+  const s = ip.trim().toLowerCase();
+  if (!s) return false;
+
+  // IPv6 loopback / unspecified / link-local / unique-local
+  if (s === '::1' || s === '::') return false;
+  if (s.startsWith('fe80:')) return false; // link-local
+  if (s.startsWith('fc') || s.startsWith('fd')) return false; // unique local fc00::/7
+
+  // IPv4
+  const m = s.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
+  if (m) {
+    const a = m.slice(1).map((x) => Number(x));
+    if (a.some((n) => !Number.isFinite(n) || n < 0 || n > 255)) return false;
+    const [o1, o2] = a;
+    if (o1 === 10) return false;
+    if (o1 === 127) return false;
+    if (o1 === 0) return false;
+    if (o1 === 169 && o2 === 254) return false; // link-local
+    if (o1 === 172 && o2 >= 16 && o2 <= 31) return false;
+    if (o1 === 192 && o2 === 168) return false;
+    if (o1 === 100 && o2 >= 64 && o2 <= 127) return false; // CGNAT
+    if (o1 >= 224) return false; // multicast/reserved
+    return true;
+  }
+
+  // Otherwise, unknown format (treat as non-public)
+  return false;
+}
+
+function looksLikeUuid(v) {
+  if (typeof v !== 'string') return false;
+  const s = v.trim();
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s);
+}
 
 // Generate JWT for Coinbase CDP API authentication
 async function generateJWT(opts = {}) {
@@ -101,7 +153,14 @@ async function generateJWT(opts = {}) {
 // Create Onramp Session endpoint
 app.post('/api/onramp/create-session', async (req, res) => {
   try {
-    const { destinationAddress, purchaseCurrency, destinationNetwork, redirectUrl } = req.body;
+    const {
+      destinationAddress,
+      purchaseCurrency,
+      destinationNetwork,
+      redirectUrl,
+      partnerUserRef,
+      purchaseCurrencySymbol,
+    } = req.body;
 
     if (!destinationAddress || !purchaseCurrency || !destinationNetwork) {
       return res.status(400).json({
@@ -127,6 +186,8 @@ app.post('/api/onramp/create-session', async (req, res) => {
 
     const blockchain = networkMap[destinationNetwork] || destinationNetwork;
     console.log('Request params:', { destinationAddress, purchaseCurrency, destinationNetwork, blockchain });
+    const clientIp = getClientIp(req);
+    if (clientIp) console.log('Client IP (best-effort):', clientIp);
 
     // Create session token using Coinbase CDP API
     // Using v1 API for session token creation
@@ -147,6 +208,7 @@ app.post('/api/onramp/create-session', async (req, res) => {
             },
           ],
           assets: [purchaseCurrency],
+          ...(clientIp ? { clientIp } : {}),
         }),
       }
     );
@@ -163,17 +225,31 @@ app.post('/api/onramp/create-session', async (req, res) => {
 
     const sessionData = await sessionTokenResponse.json();
     const sessionToken = sessionData.token;
+    if (!sessionToken) {
+      return res.status(500).json({
+        error: 'Failed to create session token',
+        details: `Unexpected response from Coinbase: ${JSON.stringify(sessionData)}`,
+      });
+    }
 
     // Build Onramp URL
-    const baseUrl = 'https://pay.coinbase.com/buy';
-    const params = new URLSearchParams({
-      sessionToken: sessionToken,
-      defaultAsset: purchaseCurrency,
-      defaultNetwork: destinationNetwork,
-    });
+    const baseUrl = 'https://pay.coinbase.com/buy/select-asset';
+    const params = new URLSearchParams({ sessionToken: sessionToken });
+    params.set('defaultExperience', 'buy');
+    params.set('defaultNetwork', blockchain);
+    const defaultAsset =
+      typeof purchaseCurrencySymbol === 'string' && purchaseCurrencySymbol.trim()
+        ? purchaseCurrencySymbol.trim()
+        : looksLikeUuid(purchaseCurrency)
+          ? undefined
+          : String(purchaseCurrency);
+    if (defaultAsset) params.set('defaultAsset', defaultAsset);
 
     if (redirectUrl) {
       params.append('redirectUrl', redirectUrl);
+    }
+    if (partnerUserRef) {
+      params.append('partnerUserRef', String(partnerUserRef).slice(0, 50));
     }
 
     const onrampUrl = `${baseUrl}?${params.toString()}`;

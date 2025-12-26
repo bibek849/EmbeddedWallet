@@ -1,0 +1,268 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Nexus Wallet — a futuristic self-custody PWA with Coinbase Onramp." />
+    <meta name="theme-color" content="#070A12" />
+    <title>Nexus Wallet — Futuristic self-custody PWA</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <canvas id="stars" aria-hidden="true"></canvas>
+    <div class="glow glow-a" aria-hidden="true"></div>
+    <div class="glow glow-b" aria-hidden="true"></div>
+
+    <header class="header">
+      <div class="container header__inner">
+        <a class="brand" href="#">
+          <span class="brand__mark" aria-hidden="true"></span>
+          <span class="brand__text">Nexus</span>
+        </a>
+        <nav class="nav">
+          <a href="#features">Features</a>
+          <a href="#onramp">Onramp</a>
+          <a href="#roadmap">Roadmap</a>
+        </nav>
+        <div class="header__cta">
+          <a class="btn btn--ghost" id="ctaMvpTop" href="#">Test the MVP</a>
+        </div>
+      </div>
+    </header>
+
+    <main>
+      <section class="hero">
+        <div class="container hero__grid">
+          <div class="hero__copy">
+            <div class="pill">
+              <span class="pill__dot" aria-hidden="true"></span>
+              <span>Self‑custody, designed for webviews & PWAs</span>
+            </div>
+
+            <h1 class="hero__title">
+              A futuristic wallet experience—<span class="hero__titleAccent">ready today</span>.
+            </h1>
+            <p class="hero__subtitle">
+              Nexus Wallet is a minimal, fast, installable PWA that creates or imports a local wallet,
+              keeps keys encrypted on-device, and funds your address with Coinbase Onramp.
+            </p>
+
+            <div class="hero__actions">
+              <a class="btn btn--primary" id="ctaMvp" href="#">Test our wallet MVP</a>
+              <a class="btn btn--secondary" href="#roadmap">See what’s next</a>
+            </div>
+
+            <div class="hero__meta">
+              <div class="metaCard">
+                <div class="metaCard__k">Local keys</div>
+                <div class="metaCard__v">Encrypted on device</div>
+              </div>
+              <div class="metaCard">
+                <div class="metaCard__k">Onramp</div>
+                <div class="metaCard__v">Same‑window checkout</div>
+              </div>
+              <div class="metaCard">
+                <div class="metaCard__k">Network</div>
+                <div class="metaCard__v">Multi-Chain Support</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="hero__visual" aria-hidden="true">
+            <div class="panel">
+              <div class="panel__top">
+                <div class="panel__lights">
+                  <span class="dot dot--r"></span>
+                  <span class="dot dot--y"></span>
+                  <span class="dot dot--g"></span>
+                </div>
+                <div class="panel__title">Nexus Wallet — Preview</div>
+              </div>
+              <div class="panel__body">
+                <div class="card">
+                  <div class="card__label">Wallet</div>
+                  <div class="card__value">Create / Import · Base</div>
+                </div>
+                <div class="card">
+                  <div class="card__label">Onramp</div>
+                  <div class="card__value">Coinbase Pay (no popups)</div>
+                </div>
+                <div class="card card--accent">
+                  <div class="card__label">Status</div>
+                  <div class="card__value">Operational · MVP live</div>
+                </div>
+                <div class="scanlines"></div>
+              </div>
+            </div>
+            <div class="ring"></div>
+          </div>
+        </div>
+      </section>
+
+      <section id="features" class="section">
+        <div class="container">
+          <div class="section__head">
+            <h2>Built for speed, safety, and mobile-first UX</h2>
+            <p>
+              A clean foundation that’s easy to extend: local wallet, send/receive, and a funding flow that works inside PWAs.
+            </p>
+          </div>
+
+          <div class="grid grid--2">
+            <div class="feature">
+              <div class="feature__icon">🔒</div>
+              <h3>Encrypted local storage</h3>
+              <p>Seed phrase is encrypted with a user passcode and stored on-device.</p>
+            </div>
+            <div class="feature">
+              <div class="feature__icon">🧠</div>
+              <h3>Minimal, reliable MVP</h3>
+              <p>Focused feature set to reduce edge cases in embedded browsers and webviews.</p>
+            </div>
+            <div class="feature">
+              <div class="feature__icon">⚡</div>
+              <h3>Instant onboarding</h3>
+              <p>Create a wallet in seconds, then fund it with Coinbase Onramp in the same window.</p>
+            </div>
+            <div class="feature">
+              <div class="feature__icon">🛡️</div>
+              <h3>Theft Protection</h3>
+              <p>Set a duress passcode that instantly wipes the device and shows an empty wallet.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="onramp" class="section section--alt">
+        <div class="container">
+          <div class="section__head">
+            <h2>Onramp that feels native</h2>
+            <p>
+              Users can fund a self‑custody address with Coinbase Onramp. Payment methods depend on region and eligibility.
+            </p>
+          </div>
+
+          <div class="grid grid--2">
+            <div class="panelCard">
+              <h3>Payment options</h3>
+              <ul class="list">
+                <li><strong>Multi-asset support</strong> (ETH, USDC, and more)</li>
+                <li><strong>Debit cards</strong> (and cards where supported)</li>
+                <li><strong>Bank transfers</strong> (e.g., ACH in the US)</li>
+                <li><strong>Apple Pay</strong> (available for eligible guest checkout flows)</li>
+              </ul>
+              <div class="note">
+                Note: availability varies by country/issuer and Coinbase account status.
+              </div>
+            </div>
+            <div class="panelCard panelCard--glow">
+              <h3>Why it converts</h3>
+              <ul class="list">
+                <li><strong>No popups</strong> — same-window navigation</li>
+                <li><strong>Redirect back</strong> into your PWA after checkout</li>
+                <li><strong>Secure signing</strong> — session tokens generated server-side</li>
+              </ul>
+              <div class="ctaRow">
+                <a class="btn btn--primary" id="ctaOnramp" href="#">Try the Onramp flow</a>
+                <a class="btn btn--ghost" href="#features">See features</a>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="roadmap" class="section">
+        <div class="container">
+          <div class="section__head">
+            <h2>Future upgrades</h2>
+            <p>
+              A roadmap that keeps the product honest: ship fast, then deepen safety and reduce friction.
+            </p>
+          </div>
+
+          <div class="timeline">
+            <div class="milestone">
+              <div class="milestone__tag">Now</div>
+              <div class="milestone__body">
+                <h3>MVP (live)</h3>
+                <p>Local wallet (create/import), Base send/receive, Coinbase Onramp funding + callback.</p>
+              </div>
+            </div>
+            <div class="milestone">
+              <div class="milestone__tag">Next</div>
+              <div class="milestone__body">
+                <h3>Better onboarding</h3>
+                <p>Biometric unlock, guided backup checks, and clearer recovery UX.</p>
+              </div>
+            </div>
+            <div class="milestone">
+              <div class="milestone__tag">Upcoming</div>
+              <div class="milestone__body">
+                <h3>New Markets & Staking</h3>
+                <p>Hyperliquid future market and Staking coming soon on the app.</p>
+              </div>
+            </div>
+            <div class="milestone">
+              <div class="milestone__tag">Expansion</div>
+              <div class="milestone__body">
+                <h3>Native Apps</h3>
+                <p>Web extension, iOS native app, and Android native app coming soon.</p>
+              </div>
+            </div>
+            <div class="milestone">
+              <div class="milestone__tag">Soon</div>
+              <div class="milestone__body">
+                <h3>Multi-network + gas UX</h3>
+                <p>More networks/assets, fee previews, and optional gas sponsorship for first transactions.</p>
+              </div>
+            </div>
+            <div class="milestone">
+              <div class="milestone__tag">Later</div>
+              <div class="milestone__body">
+                <h3>Advanced payments</h3>
+                <p>Explore deeper Apple Pay experiences and additional on/off‑ramp options (subject to access/availability).</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="finalCta">
+            <div>
+              <h3>Ready to test the MVP?</h3>
+              <p>Jump into the wallet app and try funding your address with Coinbase Onramp.</p>
+            </div>
+            <div class="finalCta__actions">
+              <a class="btn btn--primary" id="ctaMvpBottom" href="#">Open the wallet app</a>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <div class="container footer__inner">
+        <div class="footer__left">
+          <div class="brand brand--small">
+            <span class="brand__mark" aria-hidden="true"></span>
+            <span class="brand__text">Nexus</span>
+          </div>
+          <div class="muted">© <span id="year"></span> Nexus Wallet</div>
+        </div>
+        <div class="footer__right">
+          <a id="footerApp" href="#">Wallet app</a>
+          <a href="#features">Features</a>
+          <a href="#onramp">Onramp</a>
+          <a href="#roadmap">Roadmap</a>
+        </div>
+      </div>
+    </footer>
+
+    <script src="./config.js"></script>
+    <script src="./main.js"></script>
+  </body>
+</html>

@@ -4,6 +4,62 @@ export const config = {
   runtime: 'nodejs',
 };
 
+function getClientIp(req) {
+  // Prefer the network layer IP when available. In serverless/proxies we may only have forwarded headers.
+  const xfwd = req?.headers?.['x-forwarded-for'];
+  const fromHeader =
+    typeof xfwd === 'string'
+      ? xfwd.split(',')[0]?.trim()
+      : Array.isArray(xfwd)
+        ? xfwd[0]?.split(',')[0]?.trim()
+        : undefined;
+  const ip =
+    fromHeader ||
+    req?.socket?.remoteAddress ||
+    req?.connection?.remoteAddress ||
+    undefined;
+  if (!ip) return undefined;
+  const normalized = ip.startsWith('::ffff:') ? ip.slice('::ffff:'.length) : ip;
+  return isPublicIp(normalized) ? normalized : undefined;
+}
+
+function isPublicIp(ip) {
+  if (typeof ip !== 'string') return false;
+  const s = ip.trim().toLowerCase();
+  if (!s) return false;
+
+  // IPv6 loopback / unspecified / link-local / unique-local
+  if (s === '::1' || s === '::') return false;
+  if (s.startsWith('fe80:')) return false; // link-local
+  if (s.startsWith('fc') || s.startsWith('fd')) return false; // unique local fc00::/7
+
+  // IPv4
+  const m = s.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
+  if (m) {
+    const a = m.slice(1).map((x) => Number(x));
+    if (a.some((n) => !Number.isFinite(n) || n < 0 || n > 255)) return false;
+    const [o1, o2] = a;
+    if (o1 === 10) return false;
+    if (o1 === 127) return false;
+    if (o1 === 0) return false;
+    if (o1 === 169 && o2 === 254) return false; // link-local
+    if (o1 === 172 && o2 >= 16 && o2 <= 31) return false;
+    if (o1 === 192 && o2 === 168) return false;
+    if (o1 === 100 && o2 >= 64 && o2 <= 127) return false; // CGNAT
+    if (o1 >= 224) return false; // multicast/reserved
+    return true;
+  }
+
+  // Otherwise, unknown format (treat as non-public)
+  return false;
+}
+
+function looksLikeUuid(v) {
+  if (typeof v !== 'string') return false;
+  const s = v.trim();
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s);
+}
+
 export default async function handler(req, res) {
   try {
     if (req.method !== 'POST') {
@@ -16,7 +72,15 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'Invalid JSON body' });
     }
 
-    const { destinationAddress, purchaseCurrency, destinationNetwork, redirectUrl } = body;
+    const {
+      destinationAddress,
+      purchaseCurrency,
+      destinationNetwork,
+      redirectUrl,
+      partnerUserRef,
+      // optional hint for URL defaults when purchaseCurrency is a UUID
+      purchaseCurrencySymbol,
+    } = body;
 
     if (!destinationAddress || !purchaseCurrency || !destinationNetwork) {
       return res.status(400).json({
@@ -38,6 +102,7 @@ export default async function handler(req, res) {
       solana: 'solana',
     };
     const blockchain = networkMap[destinationNetwork] || destinationNetwork;
+    const clientIp = getClientIp(req);
 
     const sessionTokenResponse = await fetch(
       'https://api.developer.coinbase.com/onramp/v1/token',
@@ -55,6 +120,7 @@ export default async function handler(req, res) {
             },
           ],
           assets: [purchaseCurrency],
+          ...(clientIp ? { clientIp } : {}),
         }),
       }
     );
@@ -69,14 +135,30 @@ export default async function handler(req, res) {
 
     const sessionData = await sessionTokenResponse.json();
     const sessionToken = sessionData?.token;
+    if (!sessionToken) {
+      return res.status(500).json({
+        error: 'Failed to create session token',
+        details: `Unexpected response from Coinbase: ${JSON.stringify(sessionData)}`,
+      });
+    }
 
-    const baseUrl = 'https://pay.coinbase.com/buy';
-    const params = new URLSearchParams({
-      sessionToken,
-      defaultAsset: purchaseCurrency,
-      defaultNetwork: destinationNetwork,
-    });
+    // Coinbase docs: https://pay.coinbase.com/buy/select-asset?sessionToken=<token>&...
+    const baseUrl = 'https://pay.coinbase.com/buy/select-asset';
+    const params = new URLSearchParams({ sessionToken });
+    // defaultExperience is optional, but keeps the UX consistent.
+    params.set('defaultExperience', 'buy');
+    params.set('defaultNetwork', blockchain);
+    // Avoid passing UUIDs as defaultAsset (hosted UI may expect symbol). If we only allow 1 asset
+    // in the session token, the widget will naturally default to it anyway.
+    const defaultAsset =
+      typeof purchaseCurrencySymbol === 'string' && purchaseCurrencySymbol.trim()
+        ? purchaseCurrencySymbol.trim()
+        : looksLikeUuid(purchaseCurrency)
+          ? undefined
+          : String(purchaseCurrency);
+    if (defaultAsset) params.set('defaultAsset', defaultAsset);
     if (redirectUrl) params.append('redirectUrl', redirectUrl);
+    if (partnerUserRef) params.append('partnerUserRef', String(partnerUserRef).slice(0, 50));
 
     const onrampUrl = `${baseUrl}?${params.toString()}`;
 
