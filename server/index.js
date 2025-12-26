@@ -3,6 +3,7 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
+import { ethers } from 'ethers';
 
 dotenv.config();
 
@@ -16,7 +17,20 @@ if (requestedPort === 3000) {
 
 // If behind a proxy (Vercel/NGINX), this makes req.ip use X-Forwarded-For.
 app.set('trust proxy', true);
-app.use(cors());
+// CORS allowlist for production usage (optional).
+// If APP_ORIGIN is set, restrict requests to that origin.
+const APP_ORIGIN = process.env.APP_ORIGIN;
+app.use(
+  cors(
+    APP_ORIGIN
+      ? {
+          origin: APP_ORIGIN,
+          methods: ['GET', 'POST', 'OPTIONS'],
+          allowedHeaders: ['Content-Type'],
+        }
+      : undefined
+  )
+);
 app.use(express.json());
 
 // Coinbase CDP API credentials (set these in .env file)
@@ -71,6 +85,26 @@ function looksLikeUuid(v) {
   if (typeof v !== 'string') return false;
   const s = v.trim();
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s);
+}
+
+function buildOnrampAuthMessage(params) {
+  const { destinationAddress, purchaseCurrency, destinationNetwork, redirectUrl, issuedAt } = params || {};
+  return [
+    'EmbeddedWallet Onramp Session',
+    `destinationAddress: ${String(destinationAddress || '')}`,
+    `destinationNetwork: ${String(destinationNetwork || '')}`,
+    `purchaseCurrency: ${String(purchaseCurrency || '')}`,
+    `redirectUrl: ${String(redirectUrl || '')}`,
+    `issuedAt: ${String(issuedAt || '')}`,
+  ].join('\n');
+}
+
+function isRecentIssuedAt(issuedAt, maxAgeMs = 2 * 60 * 1000) {
+  const n = typeof issuedAt === 'number' ? issuedAt : Number(issuedAt);
+  if (!Number.isFinite(n) || n <= 0) return false;
+  const skewMs = 30 * 1000; // allow small clock skew
+  const now = Date.now();
+  return n <= now + skewMs && now - n <= maxAgeMs;
 }
 
 // Generate JWT for Coinbase CDP API authentication
@@ -160,12 +194,46 @@ app.post('/api/onramp/create-session', async (req, res) => {
       redirectUrl,
       partnerUserRef,
       purchaseCurrencySymbol,
+      authMessage,
+      authSignature,
+      issuedAt,
     } = req.body;
 
     if (!destinationAddress || !purchaseCurrency || !destinationNetwork) {
       return res.status(400).json({
         error: 'Missing required parameters: destinationAddress, purchaseCurrency, destinationNetwork',
       });
+    }
+
+    // Backend API authentication: require a wallet signature proving control of destinationAddress.
+    // Recommended for production to prevent unauthorized clients generating session tokens.
+    const requireAuth = process.env.NODE_ENV === 'production' || process.env.ONRAMP_REQUIRE_AUTH === 'true';
+    if (requireAuth) {
+      if (!authMessage || !authSignature) {
+        return res.status(401).json({ error: 'Missing onramp auth signature' });
+      }
+      if (!isRecentIssuedAt(issuedAt)) {
+        return res.status(401).json({ error: 'Expired onramp auth timestamp' });
+      }
+      const expected = buildOnrampAuthMessage({
+        destinationAddress,
+        purchaseCurrency,
+        destinationNetwork,
+        redirectUrl,
+        issuedAt,
+      });
+      if (String(authMessage) !== expected) {
+        return res.status(401).json({ error: 'Invalid onramp auth message' });
+      }
+      let recovered = '';
+      try {
+        recovered = ethers.verifyMessage(String(authMessage), String(authSignature));
+      } catch {
+        return res.status(401).json({ error: 'Invalid onramp auth signature' });
+      }
+      if (recovered.toLowerCase() !== String(destinationAddress).toLowerCase()) {
+        return res.status(401).json({ error: 'Onramp auth signature does not match destinationAddress' });
+      }
     }
 
     // Generate JWT for authentication

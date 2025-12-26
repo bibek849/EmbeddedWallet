@@ -2,10 +2,28 @@ import { useMemo, useState } from 'react';
 import { useWallet } from '../contexts/WalletContext';
 import { useWalletNetworkAsset } from '../hooks/useWalletNetworkAsset';
 import type { ChainKey } from '../config/chains';
+import EmailSignIn from '../components/EmailSignIn';
 import './FundWallet.css';
 
+function buildOnrampAuthMessage(params: {
+  destinationAddress: string;
+  purchaseCurrency: string;
+  destinationNetwork: string;
+  redirectUrl: string;
+  issuedAt: number;
+}) {
+  return [
+    'EmbeddedWallet Onramp Session',
+    `destinationAddress: ${params.destinationAddress}`,
+    `destinationNetwork: ${params.destinationNetwork}`,
+    `purchaseCurrency: ${params.purchaseCurrency}`,
+    `redirectUrl: ${params.redirectUrl}`,
+    `issuedAt: ${params.issuedAt}`,
+  ].join('\n');
+}
+
 const FundWallet = () => {
-  const { walletAddress, hasWallet } = useWallet();
+  const { walletAddress, hasWallet, isUnlocked, signMessage } = useWallet();
   const [loading, setLoading] = useState(false);
   const {
     chains,
@@ -39,9 +57,25 @@ const FundWallet = () => {
 
   const handleFundWallet = async () => {
     if (!walletAddress) return;
+    if (!isUnlocked) {
+      alert('Unlock your wallet first (Home → Unlock Wallet) to continue.');
+      return;
+    }
 
     setLoading(true);
     try {
+      const redirectUrl = `${window.location.origin}/onramp-callback`;
+      const purchaseCurrency = selectedAsset?.symbol ?? selectedAsset?.id ?? selectedAssetId;
+      const issuedAt = Date.now();
+      const authMessage = buildOnrampAuthMessage({
+        destinationAddress: walletAddress,
+        purchaseCurrency,
+        destinationNetwork: selectedChainKey,
+        redirectUrl,
+        issuedAt,
+      });
+      const authSignature = await signMessage(authMessage);
+
       // Call backend API to generate Onramp URL
       const response = await fetch('/api/onramp/create-session', {
         method: 'POST',
@@ -51,12 +85,15 @@ const FundWallet = () => {
         body: JSON.stringify({
           destinationAddress: walletAddress,
           // Prefer symbol for best compatibility with Coinbase hosted UI defaults.
-          purchaseCurrency: selectedAsset?.symbol ?? selectedAsset?.id ?? selectedAssetId,
+          purchaseCurrency,
           purchaseCurrencySymbol: selectedAsset?.symbol,
           destinationNetwork: selectedChainKey,
-          redirectUrl: `${window.location.origin}/onramp-callback`,
+          redirectUrl,
           // Optional but useful: lets you query transaction status by this identifier later.
           partnerUserRef: walletAddress,
+          issuedAt,
+          authMessage,
+          authSignature,
         }),
       });
 
@@ -83,6 +120,12 @@ const FundWallet = () => {
       <div className="fund-card">
         <h2>Fund Your Wallet</h2>
         <p className="subtitle">Buy cryptocurrency using Coinbase Onramp</p>
+
+        {!isUnlocked && (
+          <div style={{ marginBottom: '1rem' }}>
+            <EmailSignIn mode="unlock" />
+          </div>
+        )}
 
         <div className="form-group">
           <label>Select Network</label>
@@ -152,7 +195,7 @@ const FundWallet = () => {
         <button
           className="fund-button"
           onClick={handleFundWallet}
-          disabled={loading || !selectedAsset}
+          disabled={loading || !selectedAsset || !isUnlocked}
         >
           {loading ? 'Loading...' : 'Continue to Coinbase Onramp'}
         </button>

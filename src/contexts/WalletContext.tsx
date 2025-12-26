@@ -26,6 +26,8 @@ interface WalletContextType {
   isUnlocked: boolean;
   hasTheftPasscode: boolean;
   theftSetupPending: boolean;
+  /** Sign an arbitrary message with the local wallet (requires unlock). */
+  signMessage: (message: string) => Promise<string>;
   /** Back-compat: Base native balance */
   getBalance: (address: string) => Promise<string>;
   /** Multi-network native balance */
@@ -295,6 +297,15 @@ export const WalletProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     setIsUnlocked(false);
   }, []);
 
+  const signMessage = useCallback(
+    async (message: string) => {
+      if (!walletAddress) throw new Error('No wallet connected');
+      if (!isUnlocked || !unlockedWallet) throw new Error('Wallet is locked. Unlock to continue.');
+      return await unlockedWallet.signMessage(message);
+    },
+    [isUnlocked, unlockedWallet, walletAddress],
+  );
+
   const resetWallet = useCallback(async () => {
     await clearStoredWallet();
     setStored(null);
@@ -381,6 +392,7 @@ export const WalletProvider: React.FC<{ children: ReactNode }> = ({ children }) 
         isUnlocked,
         hasTheftPasscode,
         theftSetupPending,
+        signMessage,
         getBalance,
         getNativeBalance,
         getTokenBalance,

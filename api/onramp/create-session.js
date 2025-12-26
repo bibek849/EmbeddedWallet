@@ -1,8 +1,35 @@
 import { generateCdpOnrampJwt, parseJsonBody } from '../_lib/cdpOnramp.js';
+import { ethers } from 'ethers';
 
 export const config = {
   runtime: 'nodejs',
 };
+
+function buildOnrampAuthMessage(params) {
+  const {
+    destinationAddress,
+    purchaseCurrency,
+    destinationNetwork,
+    redirectUrl,
+    issuedAt,
+  } = params || {};
+  return [
+    'EmbeddedWallet Onramp Session',
+    `destinationAddress: ${String(destinationAddress || '')}`,
+    `destinationNetwork: ${String(destinationNetwork || '')}`,
+    `purchaseCurrency: ${String(purchaseCurrency || '')}`,
+    `redirectUrl: ${String(redirectUrl || '')}`,
+    `issuedAt: ${String(issuedAt || '')}`,
+  ].join('\n');
+}
+
+function isRecentIssuedAt(issuedAt, maxAgeMs = 2 * 60 * 1000) {
+  const n = typeof issuedAt === 'number' ? issuedAt : Number(issuedAt);
+  if (!Number.isFinite(n) || n <= 0) return false;
+  const skewMs = 30 * 1000; // allow small clock skew
+  const now = Date.now();
+  return n <= now + skewMs && now - n <= maxAgeMs;
+}
 
 function getClientIp(req) {
   // Prefer the network layer IP when available. In serverless/proxies we may only have forwarded headers.
@@ -62,6 +89,22 @@ function looksLikeUuid(v) {
 
 export default async function handler(req, res) {
   try {
+    // CORS (optional allowlist via APP_ORIGIN env var)
+    const reqOrigin = req?.headers?.origin;
+    const allowedOrigin = process.env.APP_ORIGIN;
+    if (typeof reqOrigin === 'string' && reqOrigin) {
+      if (!allowedOrigin || reqOrigin === allowedOrigin) {
+        res.setHeader('Access-Control-Allow-Origin', reqOrigin);
+        res.setHeader('Vary', 'Origin');
+      }
+    }
+    res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
+    if (req.method === 'OPTIONS') {
+      return res.status(204).end();
+    }
+
     if (req.method !== 'POST') {
       res.setHeader('Allow', 'POST');
       return res.status(405).json({ error: 'Method not allowed' });
@@ -80,6 +123,10 @@ export default async function handler(req, res) {
       partnerUserRef,
       // optional hint for URL defaults when purchaseCurrency is a UUID
       purchaseCurrencySymbol,
+      // auth fields (recommended for production)
+      authMessage,
+      authSignature,
+      issuedAt,
     } = body;
 
     if (!destinationAddress || !purchaseCurrency || !destinationNetwork) {
@@ -87,6 +134,37 @@ export default async function handler(req, res) {
         error:
           'Missing required parameters: destinationAddress, purchaseCurrency, destinationNetwork',
       });
+    }
+
+    // Backend API authentication: verify the caller controls destinationAddress by requiring
+    // a wallet signature over a short-lived message (recommended for production).
+    const requireAuth = process.env.NODE_ENV === 'production' || process.env.ONRAMP_REQUIRE_AUTH === 'true';
+    if (requireAuth) {
+      if (!authMessage || !authSignature) {
+        return res.status(401).json({ error: 'Missing onramp auth signature' });
+      }
+      if (!isRecentIssuedAt(issuedAt)) {
+        return res.status(401).json({ error: 'Expired onramp auth timestamp' });
+      }
+      const expected = buildOnrampAuthMessage({
+        destinationAddress,
+        purchaseCurrency,
+        destinationNetwork,
+        redirectUrl,
+        issuedAt,
+      });
+      if (String(authMessage) !== expected) {
+        return res.status(401).json({ error: 'Invalid onramp auth message' });
+      }
+      let recovered = '';
+      try {
+        recovered = ethers.verifyMessage(String(authMessage), String(authSignature));
+      } catch {
+        return res.status(401).json({ error: 'Invalid onramp auth signature' });
+      }
+      if (recovered.toLowerCase() !== String(destinationAddress).toLowerCase()) {
+        return res.status(401).json({ error: 'Onramp auth signature does not match destinationAddress' });
+      }
     }
 
     const token = await generateCdpOnrampJwt({ requestMethod: 'POST', requestPath: '/onramp/v1/token' });
