@@ -1,7 +1,7 @@
 import { generateCdpOnrampJwt, parseJsonBody } from '../_lib/cdpOnramp.js';
 
 export const config = {
-  runtime: 'nodejs20.x',
+  runtime: 'nodejs',
 };
 
 export default async function handler(req, res) {
