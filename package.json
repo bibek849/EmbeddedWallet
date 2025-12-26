@@ -1,0 +1,45 @@
+{
+  "name": "embedded-wallet-pwa",
+  "version": "1.0.0",
+  "description": "Embedded wallet PWA with Coinbase Onramp integration",
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "generate-pwa-assets": "pwa-assets-generator",
+    "dev": "npm run generate-pwa-assets && vite",
+    "dev:all": "concurrently -k -n server,web -c red,blue \"npm run server\" \"npm run dev -- --port 3000\"",
+    "build": "npm run generate-pwa-assets && tsc && vite build",
+    "preview": "vite preview",
+    "server": "node server/index.js"
+  },
+  "dependencies": {
+    "buffer": "^6.0.3",
+    "ethers": "^6.9.0",
+    "qrcode": "^1.5.4",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-router-dom": "^6.20.0",
+    "workbox-window": "^7.0.0"
+  },
+  "devDependencies": {
+    "@vite-pwa/assets-generator": "^1.0.2",
+    "@types/express": "^4.17.21",
+    "@types/jsonwebtoken": "^9.0.5",
+    "@types/node": "^20.10.0",
+    "@types/qrcode": "^1.5.5",
+    "@types/react": "^18.2.43",
+    "@types/react-dom": "^18.2.17",
+    "@vitejs/plugin-react": "^4.2.1",
+    "concurrently": "^9.1.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.3.1",
+    "express": "^4.18.2",
+    "jsonwebtoken": "^9.0.2",
+    "typescript": "^5.3.3",
+    "vite": "^5.0.8",
+    "vite-plugin-node-polyfills": "^0.24.0",
+    "vite-plugin-pwa": "^0.17.4"
+  }
+}

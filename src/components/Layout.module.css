@@ -1,0 +1,152 @@
+.layout {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  padding-top: 56px; /* Space for fixed top nav */
+  padding-bottom: calc(76px + env(safe-area-inset-bottom)); /* Space for bottom nav + iOS safe area */
+}
+
+.topNav {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 100;
+  border-bottom: 1px solid var(--border-color);
+  background: rgba(0, 0, 0, 0.8);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.topNavInner {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 0 1rem;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  user-select: none;
+}
+
+.brandMark {
+  width: 12px;
+  height: 12px;
+  background: #ffffff;
+}
+
+.brandName {
+  font-weight: 700;
+  letter-spacing: 0.24em;
+  font-size: 0.8rem;
+}
+
+.topActions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.statusPill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.4rem 0.6rem;
+  border: 1px solid var(--border-color);
+  background: rgba(255, 255, 255, 0.03);
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+}
+
+.statusDot {
+  width: 6px;
+  height: 6px;
+  background: var(--success-color);
+}
+
+.statusText {
+  line-height: 1;
+}
+
+.mainContent {
+  flex: 1;
+  padding: 1.5rem 1rem;
+  max-width: 600px;
+  width: 100%;
+  margin: 0 auto;
+}
+
+.bottomNav {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: rgba(0, 0, 0, 0.85);
+  border-top: 1px solid var(--border-color);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  display: flex;
+  justify-content: space-around;
+  padding: 0.5rem 0.5rem calc(0.5rem + env(safe-area-inset-bottom));
+  z-index: 100;
+  box-shadow: none;
+}
+
+.navItem {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.6rem 0.9rem;
+  color: rgba(255, 255, 255, 0.55);
+  transition: color var(--dur-1) var(--ease-out),
+    transform var(--dur-1) var(--ease-out);
+  text-decoration: none;
+  min-width: 60px;
+  border: 1px solid transparent;
+  background: transparent;
+}
+
+.navItem:hover {
+  color: rgba(255, 255, 255, 0.85);
+  background: rgba(255, 255, 255, 0.03);
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+.navItemActive {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.14);
+}
+
+.navIcon {
+  font-size: 1.1rem;
+  line-height: 1;
+}
+
+.navLabel {
+  font-size: 0.65rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+}
+
+@media (max-width: 480px) {
+  .navLabel {
+    font-size: 0.6rem;
+  }
+
+  .navIcon {
+    font-size: 1.05rem;
+  }
+}
+
+
